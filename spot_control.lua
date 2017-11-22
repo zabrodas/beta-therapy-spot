@@ -1,7 +1,4 @@
-netList={
-    { "az-theater","internal17" },
-    { "gzabrodina","pusya756nadya" }
-};
+dofile("spot_control.cfg")
 
 wifiScanIndex=1
 wifiTryIndex=-1
@@ -10,9 +7,11 @@ wifiRetryCounter=-1
 
 function lampCtrl(on)
     gpio.mode(1,gpio.OUTPUT)
-    if on then
+    if on>0 then
+        print("LAMP ON")
         gpio.write(1,gpio.HIGH)
     else
+        print("LAMP OFF")
         gpio.write(1,gpio.LOW)
     end
 end
@@ -33,20 +32,11 @@ function onRequest(socket, request)
     local op=string.match(request,"GET%s+/(%w+).")
     if op=="on" then
         lampCtrl(1)
-        print("ON")
     elseif op=="off" then
         lampCtrl(0)
-        print("OFF")
     end        
 
-    socket:send(
-      "HTTP/1.0 200 OK\r\n"..
-      "Content-Type: text/plain\r\n"..
-      "Access-Control-Allow-Origin: *\r\n"..
-      "Content-Length: 5\r\n"..
-      "\r\n"..
-      "SPOT1\r\n"
-    )
+    socket:send(serverReply)
 end
 
 function onCLientConnected(socket)
@@ -61,7 +51,7 @@ function onWifiGotIp(t)
         server=nil
     end
     server=net.createServer(net.TCP, 30)
-    server:listen(2222,onCLientConnected)
+    server:listen(8080,onCLientConnected)
 end
 
 
