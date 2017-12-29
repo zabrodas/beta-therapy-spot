@@ -5,28 +5,109 @@ wifiTryIndex=-1
 wifiConnectionWatchdog=nil
 wifiRetryCounter=-1
 
-firstdo=2
 numdo=4
+domap={1,2,3,5}
 
 function doCtrl(i,on)
-    print("d["..i.."]="..on)
-    gpio.mode(i-1+firstdo,gpio.OUTPUT)
+    local pin=domap[i]
+    print("d["..i.."/"..pin.."]="..on)
+    gpio.mode(pin,gpio.OUTPUT)
     if on>0 then
-        gpio.write(i-1+firstdo,gpio.HIGH)
+        gpio.write(pin,gpio.HIGH)
     else
-        gpio.write(i-1+firstdo,gpio.LOW)
+        gpio.write(pin,gpio.LOW)
     end
 end
 
+dmxBuffer="\0"
+dmxNewBuffer=nil
+dmxTimer=nil;
 
---dmxBuffer={}
---dmxTimer=tmr.Create()
+dmxpin=5
+dmxbaud=250000
+dmxbd=1000000/dmxbaud
+
+dmxsb={}
+dmxsbcnt=0
+dmxsblb=1;
+function dmxsbReset()
+    dmxsb={}
+    dmxsb[0]=dmxbd
+    dmxsbcnt=0
+    dmxsbl=1
+end
+function dmxAppendBit(b)
+    if dmxsbl==b then
+        dmxsb[dmxsbcnt]=dmxsb[dmxsbcnt]+dmxbd
+    else
+        dmxsbcnt=dmxsbcnt+1
+        dmxsb[dmxsbcnt]=dmxbd
+        dmxsbl=b
+    end
+end
+function dmxAppendByte(b)
+    dmxAppendBit(0)
+    local b1=b
+    for i=0,7 do
+        dmxAppendBit(b1%2)
+        b1=b1/2
+    end
+    dmxAppendBit(1)
+    dmxAppendBit(1)
+end
+function dmxCreateSb()
+    dmxsbReset()
+    for i=0,500 do
+        dmxAppendBit(0)
+    end
+    dmxAppendByte(0)
+    for i=1,#dmxBuffer do
+        local c=string.byte(dmxBuffer,i)
+        dmxAppendByte(c)
+    end
+    dmxAppendBit(0)
+end
+
+function dmxSendFrame1() 
+    tmr.start(dmxTimer)
+end
+
+function dmxSendFrame(buf)
+    if dmxNewBuffer~=nil then
+        dmxBuffer=dmxNewBuffer
+        dmxNewBuffer=nil
+        uart.write(0,"dmxBuffer="..dmxBuffer)
+--        dmxCreateSb()
+    end
+    -- gpio.serout(dmxpin, gpio.HIGH, {1000000,1000000}, 1, dmxSendFrame)
+    -- gpio.serout(dmxpin, gpio.HIGH, dmxsb, 1, dmxSendFrame1)
+    --local x={}
+    --for i=0,#dmxsb do
+    --    x[i]=dmxsb[i]
+    --end
+    --gpio.serout(dmxpin, gpio.HIGH, x)
+    --x=nil
+    -- dmxSendFrame1()
+    uart.setup(1, 80000, 8, uart.PARITY_NONE, uart.STOPBITS_2,0)
+    uart.write(1,0)
+    uart.setup(1, 256000, 8, uart.PARITY_NONE, uart.STOPBITS_2,0)
+    for i=1,#dmxBuffer do
+        uart.write(1,string.byte(dmxBuffer,i))
+    end
+    -- uart.write(0,dmxBuffer)
+    -- tmr.start(dmxTimer)
+    dmxSendFrame1()
+end
 
 function dmxCtrl(str)
+    local b="\0"
     for i=1,#str/2 do
         local v=tonumber(string.sub(str,2*i-1,2*i),16)
-        dmxBuffer[i]=v
+        b=b..string.char(v)
     end
+    dmxNewBuffer=b
+    -- print("dxmNewBuffer=",#str,#dmxNewBuffer)
+    -- print("dxmNewBuffer=",str,dmxNewBuffer)
 end
 
 function onWifiConnected(t)
@@ -39,12 +120,66 @@ end
 
 server=nil
 
+function sendFile(socket,fn)
+    print("Send file",fn)
+    local fd=file.open(fn)
+    if fd==nil then
+        socket:send(serverErr)
+        return
+    end
+    local fs=file.stat(fn).size
+    print("size",fs)
+    
+    local n,e
+    n,e=string.match(fn,"([%w_%-%.]+)%.([%w_%-]+)")
+    local mt=mimeTypes[e]
+    if mt==nil then mt=mimeDefaultType; end
+
+    print("mt",mt)
+
+    local t = {FILESIZE=fs, MIMETYPE=mt}
+    local h = string.gsub(serverFile, "#(%w+)#", t)
+
+    print("headers:",h)
+    socket:send(h)
+
+    while true do
+        local s=fd.read()
+        if s==nil then break; end
+        socket:send(s)
+    end    
+
+    fd.close();
+end
+    
+
+
 function onRequest(socket, request)
     print("onRequest ",request)
 
-    local op,index;
-    op,index=string.match(request,"GET%s+/(%a+)(%d*).")
-    index=tonumber(index)
+    -- op,index,hex=string.match(request,"GET%s+/(%a+)(%d*)(=[0-9A-F]+)*.")
+    --- print("/",request,"/")
+    local f
+
+    f=string.match(request,"GET%s+(/)%s+")
+    if f=="/" then
+        socket:send(serverRedirect)
+        return
+    end
+    
+    f=string.match(request,"GET%s+/file/([%w_%-%.]+)")
+    if f~=null then
+        sendFile(socket,f)
+        return;
+    end        
+
+    local op,index,eq,hex;
+    op,index,eq,hex=string.match(request,"GET%s+/(%a+)(%d*)(=?)(%x*).")
+    print("/",op,"/",index,"/",hex,"/")
+
+    if index~="" then
+        index=tonumber(index)
+    end
     if op=="on" and index>=1 and index<=numdo then
         doCtrl(index,1)
     elseif op=="off" and index>=1 and index<=numdo then
@@ -54,8 +189,10 @@ function onRequest(socket, request)
             doCtrl(i,index%2)
             index=index/2
         end
-    end        
-
+    elseif op=="dmx" then
+        dmxCtrl(hex)
+    end
+    
     socket:send(serverReply)
 end
 
@@ -139,4 +276,7 @@ for i=1,numdo do
     doCtrl(i,0)
 end
 wifiConnectionWatchdogProc()
+dmxTimer=tmr.create()
+tmr.register(dmxTimer,10,tmr.ALARM_SEMI,dmxSendFrame)
+tmr.start(dmxTimer)
 
