@@ -1,1 +1,32 @@
-﻿asdalskjdhlasd
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Усправление светом</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="main.css">
+    <script src="jquery-3.2.1.min.js"></script>
+    <script src="colorcalc.js"></script>
+    <script src="script.js"></script>
+</head>
+
+<body>
+<div class=docontrolWrapper>
+Свет:
+<label><input id="do1" type=checkbox value="Свет1" class=docontrol>1</label>
+<label><input id="do2" type=checkbox value="Свет2" class=docontrol>2</label>
+<label><input id="do3" type=checkbox value="Свет3" class=docontrol>3</label>
+<label><input id="do4" type=checkbox value="Свет4" class=docontrol>4</label>
+</div>
+
+<table class=dmxwrapper>
+<tr><td id=tr><input id="r" type=range min="0" max="1" step=0.01 value="0" class=colorslider></td></tr>
+<tr><td id=tg><input id="g" type=range min="0" max="1" step=0.01 value="0" class=colorslider></td></tr>
+<tr><td id=tb><input id="b" type=range min="0" max="1" step=0.01 value="0" class=colorslider></td></tr>
+<tr><td id=th><input id="h" type=range min="0" max="359" step=1 value="0"  class="colorslider hue"></td></tr>
+<tr><td id=ts><input id="s" type=range min="0" max="1" step=0.01 value="1" class=colorslider></td></tr>
+<tr><td id=tv><input id="v" type=range min="0" max="1" step=0.01 value="0" class=colorslider></td></tr>
+</table>
+
+</body>
+</html>

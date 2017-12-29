@@ -93,6 +93,7 @@ function dmxSendFrame(buf)
     uart.setup(1, 256000, 8, uart.PARITY_NONE, uart.STOPBITS_2,0)
     for i=1,#dmxBuffer do
         uart.write(1,string.byte(dmxBuffer,i))
+        tmr.delay(500)
     end
     -- uart.write(0,dmxBuffer)
     -- tmr.start(dmxTimer)
@@ -120,6 +121,18 @@ end
 
 server=nil
 
+function sendBigFile(socket,fd,onDone)
+    local s=fd:read()
+    if s==nil then
+        onDone(socket,fd)
+        return
+    end
+    local next=function()
+        sendBigFile(socket,fd,onDone)
+    end;
+    socket:send(s, next)
+end
+
 function sendFile(socket,fn)
     print("Send file",fn)
     local fd=file.open(fn)
@@ -143,13 +156,10 @@ function sendFile(socket,fn)
     print("headers:",h)
     socket:send(h)
 
-    while true do
-        local s=fd.read()
-        if s==nil then break; end
-        socket:send(s)
-    end    
-
-    fd.close();
+    local onDone=function(socket, fd)
+        fd:close()
+    end
+    sendBigFile(socket,fd,onDone);
 end
     
 
@@ -212,6 +222,18 @@ function onWifiGotIp(t)
 end
 
 
+function wifiInit()
+    print("WiFi init")
+    wifi.setmode(wifi.STATIONAP)
+    wifi.setphymode(wifi.PHYMODE_B)
+    wifi.ap.config(wifiApConfig.common)
+    wifi.ap.setip(wifiApConfig.ip)
+    local dhcpstat=wifi.ap.dhcp.config(wifiApConfig.dhcp)
+    -- for i,v in pairs(dhcpstat) do print("dhcpstat:",i,"=",v); end;
+    wifi.ap.dhcp.start()
+    wifiConnectionWatchdogProc()
+end
+
 function wifiConnectionWatchdogProc()
 
     if not wifiConnectionWatchdog then
@@ -235,8 +257,6 @@ function wifiConnectionWatchdogProc()
     end
 
     print("Scan WiFi")
-    wifi.setmode(wifi.STATION)
-    wifi.setphymode(wifi.PHYMODE_B)
     wifi.sta.getap(function(wifiList)
 
         local t1=wifiScanIndex
@@ -275,7 +295,7 @@ end
 for i=1,numdo do
     doCtrl(i,0)
 end
-wifiConnectionWatchdogProc()
+wifiInit()
 dmxTimer=tmr.create()
 tmr.register(dmxTimer,10,tmr.ALARM_SEMI,dmxSendFrame)
 tmr.start(dmxTimer)
