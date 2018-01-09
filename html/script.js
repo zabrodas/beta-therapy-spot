@@ -94,6 +94,12 @@ function doControl(index,value) {
     doEquipmentRequestByName("COMBO",cmd);
 }
 
+function smoke(dur) {
+    cmd= "smoke"+dur;
+    doEquipmentRequestByName("COMBO",cmd);
+}
+
+
 var b2h=[];
 for (var i=0; i<16; i++) {
     for (var j=0; j<16; j++) {
@@ -232,6 +238,8 @@ function onResizeDmxWrapper() {
 
 
 $(function() {
+    $("input.smoke").click(function() { smoke(this.value); });
+
 
     $("#do1").change(function() { doControl(1,$(this).get(0).checked); });
     $("#do2").change(function() { doControl(2,$(this).get(0).checked); });

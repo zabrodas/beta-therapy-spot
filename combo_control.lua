@@ -4,9 +4,40 @@ wifiScanIndex=1
 wifiTryIndex=-1
 wifiConnectionWatchdog=nil
 wifiRetryCounter=-1
+modepin=0
 
 numdo=4
 domap={1,2,3,5}
+
+smokeTimer=nil
+smokePin=6
+
+function smokeOff()
+    gpio.mode(smokePin,gpio.OUTPUT)
+    gpio.write(smokePin,gpio.LOW)
+    if smokeTimer~=nil then
+        tmr.stop(smokeTimer)
+    end
+    print("smoke off")
+end
+
+
+function smokeOn(dur) 
+    gpio.mode(smokePin,gpio.OUTPUT)
+    if dur<=0 or dur>30 then
+        smokeOff()
+        return
+    end
+    if smokeTimer==nil then
+        smokeTimer=tmr.create()
+        tmr.register(smokeTimer, dur*1000, tmr.ALARM_SEMI, smokeOff)    
+    end
+    tmr.interval(smokeTimer,dur*1000)
+    tmr.start(smokeTimer)
+    gpio.write(smokePin,gpio.HIGH)
+    print("smoke on",dur)
+end
+
 
 function doCtrl(i,on)
     local pin=domap[i]
@@ -199,6 +230,8 @@ function onRequest(socket, request)
             doCtrl(i,index%2)
             index=index/2
         end
+    elseif op=="smoke" then
+        smokeOn(index)
     elseif op=="dmx" then
         dmxCtrl(hex)
     end
@@ -211,28 +244,90 @@ function onCLientConnected(socket)
     socket:on("receive",onRequest)
 end
 
-function onWifiGotIp(t)
-    print("Wifi got IP ",t.IP)
+function startServer()
+    print("Start server")
     if server then
         server:close()
         server=nil
     end
     server=net.createServer(net.TCP, 30)
     server:listen(8080,onCLientConnected)
+    print("Server started")
+end
+function onWifiGotIp(t)
+    print("Wifi got IP ",t.IP)
+    startServer()
 end
 
+function wifiInitAP()
+            print("WiFi init as AP")
+            wifi.setmode(wifi.SOFTAP)
+            wifi.setphymode(wifi.PHYMODE_B)
+            wifi.ap.config(wifiApConfig.common)
+            wifi.ap.setip(wifiApConfig.ip)
+            local pool_startip, pool_endip=wifi.ap.dhcp.config(wifiApConfig.dhcp)
+            wifi.ap.dhcp.start()
+            print("IP=",wifiApConfig.ip.ip," channel=",wifiApConfig.common.channel, "DHCP start=",pool_startip," DHCP stop=",pool_endip);
+            startServer()
+end
+
+function selectChannelAndStartAP(t)
+            local crt={}
+            for ssid,v in pairs(t) do
+                local authmode, rssi, bssid, channel = string.match(v, "([^,]+),([^,]+),([^,]+),([^,]+)")
+                print(string.format("%32s",ssid).."\t"..bssid.."\t  "..rssi.."\t\t"..authmode.."\t\t\t"..channel)
+                local cn=tonumber(channel)
+                local rn=tonumber(rssi)
+--                print("cn=",cn," rn=",rn," crt=",crt[cn])
+                if crt[cn]==nil then
+                    crt[cn]=rn
+                elseif crt[cn]<rn then
+                    crt[cn]=rn
+                end
+            end
+            local selchan=-1
+            for ch=1,11 do
+                --print("ch=",ch," crt=",crt[ch]," localselrssi=",localselrssi," selchan=",selchan)
+                if crt[ch]==nil then
+                    selchan=ch
+                    break
+                end
+            end
+            if selchan<1 then
+                local localselrssi=nil
+                for ch=1,11 do
+                    --print("ch=",ch," crt=",crt[ch]," localselrssi=",localselrssi," selchan=",selchan)
+                    if localselrssi==nil or crt[ch]<localselrssi then
+                        localselrssi=crt[ch]
+                        selchan=ch
+                    end
+                end
+            end
+            wifiApConfig.common.channel=selchan
+            local t=tmr.create()
+            tmr.register(t,500,tmr.ALARM_SINGLE,wifiInitAP)
+            tmr.start(t)
+end
 
 function wifiInit()
-    print("WiFi init")
-    wifi.setmode(wifi.STATIONAP)
-    wifi.setphymode(wifi.PHYMODE_B)
-    wifi.ap.config(wifiApConfig.common)
-    wifi.ap.setip(wifiApConfig.ip)
-    local dhcpstat=wifi.ap.dhcp.config(wifiApConfig.dhcp)
-    -- for i,v in pairs(dhcpstat) do print("dhcpstat:",i,"=",v); end;
-    wifi.ap.dhcp.start()
-    wifiConnectionWatchdogProc()
+    gpio.mode(modepin,gpio.INPUT,gpio.PULLUP)
+    local mode=gpio.read(modepin)
+    if mode==0 then
+        print("WiFi scan AP to select channel")
+--        wifiInitAP();
+--        return
+        
+        wifi.setmode(wifi.STATION)
+        wifi.sta.getap(selectChannelAndStartAP)
+    else
+        print("WiFi init as Station")
+        wifi.setmode(wifi.STATION)
+        wifi.setphymode(wifi.PHYMODE_B)
+        wifiConnectionWatchdogProc()
+    end
 end
+
+
 
 function wifiConnectionWatchdogProc()
 
@@ -295,8 +390,16 @@ end
 for i=1,numdo do
     doCtrl(i,0)
 end
+smokeOff()
+
 wifiInit()
 dmxTimer=tmr.create()
 tmr.register(dmxTimer,10,tmr.ALARM_SEMI,dmxSendFrame)
 tmr.start(dmxTimer)
 
+function pp(t)
+    for k,v in pairs(t) do
+        print(k,"=",v)
+    end
+end
+    
