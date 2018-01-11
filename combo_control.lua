@@ -107,7 +107,7 @@ function dmxSendFrame(buf)
     if dmxNewBuffer~=nil then
         dmxBuffer=dmxNewBuffer
         dmxNewBuffer=nil
-        uart.write(0,"dmxBuffer="..dmxBuffer)
+--        uart.write(0,"dmxBuffer="..dmxBuffer)
 --        dmxCreateSb()
     end
     -- gpio.serout(dmxpin, gpio.HIGH, {1000000,1000000}, 1, dmxSendFrame)
@@ -172,31 +172,69 @@ function sendFile(socket,fn)
         return
     end
     local fs=file.stat(fn).size
-    print("size",fs)
+--    print("size",fs)
     
     local n,e
     n,e=string.match(fn,"([%w_%-%.]+)%.([%w_%-]+)")
     local mt=mimeTypes[e]
     if mt==nil then mt=mimeDefaultType; end
 
-    print("mt",mt)
+--    print("mt",mt)
 
     local t = {FILESIZE=fs, MIMETYPE=mt}
     local h = string.gsub(serverFile, "#(%w+)#", t)
 
-    print("headers:",h)
+--    print("headers:",h)
     socket:send(h)
 
     local onDone=function(socket, fd)
         fd:close()
+        onRequestCompleted(socket)
     end
     sendBigFile(socket,fd,onDone);
 end
     
+requestCnt=0
+wifiRequestQueue={}
+
+function onRequestCompleted(socket)
+    print("onRequestCompleted")
+    socket:close()
+    requestCnt=requestCnt-1
+    nextRequest()
+end
+
+function nextRequest()
+    if requestCnt>0 then
+        print("delay request")
+        return
+    end
+    if #wifiRequestQueue==0 then
+        print("no more requests")
+        return
+    end
+    requestCnt=requestCnt+1
+    print("start request")
+    local r=table.remove(wifiRequestQueue,1)
+    local socket=r.socket
+    local request=r.request
+    onRequest1(socket, request)    
+end
 
 
 function onRequest(socket, request)
-    print("onRequest ",request)
+    print("new request")
+    local r={}
+    r.socket=socket
+    r.request=request
+    table.insert(wifiRequestQueue,r)
+    nextRequest()
+end
+
+
+function onRequest1(socket, request)
+
+    --print("onRequest ",request)
 
     -- op,index,hex=string.match(request,"GET%s+/(%a+)(%d*)(=[0-9A-F]+)*.")
     --- print("/",request,"/")
@@ -204,7 +242,7 @@ function onRequest(socket, request)
 
     f=string.match(request,"GET%s+(/)%s+")
     if f=="/" then
-        socket:send(serverRedirect)
+        socket:send(serverRedirect, function() onRequestCompleted(socket); end)
         return
     end
     
@@ -236,7 +274,7 @@ function onRequest(socket, request)
         dmxCtrl(hex)
     end
     
-    socket:send(serverReply)
+    socket:send(serverReply,function() onRequestCompleted(socket); end)
 end
 
 function onCLientConnected(socket)
