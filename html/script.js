@@ -125,117 +125,12 @@ function dmxControl(r,g,b) {
     doEquipmentRequestByName("COMBO",cmd);
 }
 
-
-
-var dmxMarkerX=0,dmxMarkerY=0;
-var dmxHSV=[0,0,0], dmxRGB=[0,0,0];
-
-function g2(c0,c1) {
-    return "linear-gradient(left, "+hexcolor(c0)+" 0%,"+hexcolor(c1)+" 100%);";
+function onChangeDmx(c) {
+    var r=c._r/255;
+    var g=c._g/255;
+    var b=c._b/255;
+    dmxControl(r,g,b);
 }
-function g6(c0,c1,c2,c3,c4,c5,c6) {
-    return "linear-gradient(left,"+hexcolor(c0)+" 0%,"+hexcolor(c1)+" 17%,"+hexcolor(c2)+" 33%,"+hexcolor(c3)+" 50%,"+hexcolor(c4)+" 67%,"+hexcolor(c5)+" 83%,"+hexcolor(c6)+" 100%);";
-}
-function gab(g) {
-    var s=
-        "background: "+g+
-        "background: -webkit-"+g+
-        "background: -moz-"+g+
-        "background: -ms-"+g;
-    return s;
-}
-
-function gradR() {
-    var c0=[0,dmxRGB[1],dmxRGB[2]];
-    var c1=[1,dmxRGB[1],dmxRGB[2]];
-    $("#r").val(dmxRGB[0]);
-    $("#tr").attr("style",gab(g2(c0,c1)));
-}
-function gradG() {
-    var c0=[dmxRGB[0],0,dmxRGB[2]];
-    var c1=[dmxRGB[0],1,dmxRGB[2]];
-    $("#g").val(dmxRGB[1]);
-    $("#tg").attr("style",gab(g2(c0,c1)));
-}
-function gradB() {
-    var c0=[dmxRGB[0],dmxRGB[1],0];
-    var c1=[dmxRGB[0],dmxRGB[1],1];
-    $("#b").val(dmxRGB[2]);
-    $("#tb").attr("style",gab(g2(c0,c1)));
-}
-function gradH() {
-    var c0=hsv2rgb([0,dmxHSV[1],dmxHSV[2]]);
-    var c1=hsv2rgb([60,dmxHSV[1],dmxHSV[2]]);
-    var c2=hsv2rgb([120,dmxHSV[1],dmxHSV[2]]);
-    var c3=hsv2rgb([180,dmxHSV[1],dmxHSV[2]]);
-    var c4=hsv2rgb([240,dmxHSV[1],dmxHSV[2]]);
-    var c5=hsv2rgb([300,dmxHSV[1],dmxHSV[2]]);
-    $("#h").val(dmxHSV[0]);
-    $("#th").attr("style",gab(g6(c0,c1,c2,c3,c4,c5,c0)));
-}
-function gradS() {
-    var c0=hsv2rgb([dmxHSV[0],0,dmxHSV[2]]);
-    var c1=hsv2rgb([dmxHSV[0],1,dmxHSV[2]]);
-    $("#s").val(dmxHSV[1]);
-    $("#ts").attr("style",gab(g2(c0,c1)));
-}
-function gradV() {
-    var c0=hsv2rgb([dmxHSV[0],dmxHSV[1],0]);
-    var c1=hsv2rgb([dmxHSV[0],dmxHSV[1],1]);
-    $("#v").val(dmxHSV[2]);
-    $("#tv").attr("style",gab(g2(c0,c1)));
-}
-function gradAll() {
-    gradR();
-    gradG();
-    gradB();
-    gradH();
-    gradS();
-    gradV();
-}
-
-function dmxOnChangeH(value) {
-    dmxHSV[0]=value;
-    dmxRGB=hsv2rgb(dmxHSV);
-    dmxControl(dmxRGB[0],dmxRGB[1],dmxRGB[2]);
-    gradAll();
-}
-function dmxOnChangeS(value) {
-    dmxHSV[1]=value;
-    dmxRGB=hsv2rgb(dmxHSV);
-    dmxControl(dmxRGB[0],dmxRGB[1],dmxRGB[2]);
-    gradAll();
-}
-function dmxOnChangeV(value) {
-    dmxHSV[2]=value;
-    dmxRGB=hsv2rgb(dmxHSV);
-    dmxControl(dmxRGB[0],dmxRGB[1],dmxRGB[2]);
-    gradAll();
-}
-function dmxOnChangeR(value) {
-    dmxRGB[0]=value;
-    dmxHSV=rgb2hsv(dmxRGB);
-    dmxControl(dmxRGB[0],dmxRGB[1],dmxRGB[2]);
-    gradAll();
-}
-function dmxOnChangeG(value) {
-    dmxRGB[1]=value;
-    dmxHSV=rgb2hsv(dmxRGB);
-    dmxControl(dmxRGB[0],dmxRGB[1],dmxRGB[2]);
-    gradAll();
-}
-function dmxOnChangeB(value) {
-    dmxRGB[2]=value;
-    dmxHSV=rgb2hsv(dmxRGB);
-    dmxControl(dmxRGB[0],dmxRGB[1],dmxRGB[2]);
-    gradAll();
-}
-
-function onResizeDmxWrapper() {
-    var w=$(window).width();
-    $(".colorslider").width(w*0.9);
-}
-
 
 $(function() {
     $("input.smoke").click(function() { smoke(this.value); });
@@ -246,15 +141,31 @@ $(function() {
     $("#do3").change(function() { doControl(3,$(this).get(0).checked); });
     $("#do4").change(function() { doControl(4,$(this).get(0).checked); });
 
-    $(window).resize(onResizeDmxWrapper); onResizeDmxWrapper();
+    $("#dmx").spectrum({
+        color: "#000",
+        flat: true,
+        showInput: true,
+        showPalette: true,
+        showInput: false,
+        palette: [
+            ["#000","#444","#666","#999","#ccc","#eee","#f3f3f3","#fff"],
+            ["#f00","#f90","#ff0","#0f0","#0ff","#00f","#90f","#f0f"],
+            ["#f4cccc","#fce5cd","#fff2cc","#d9ead3","#d0e0e3","#cfe2f3","#d9d2e9","#ead1dc"],
+            ["#ea9999","#f9cb9c","#ffe599","#b6d7a8","#a2c4c9","#9fc5e8","#b4a7d6","#d5a6bd"],
+            ["#e06666","#f6b26b","#ffd966","#93c47d","#76a5af","#6fa8dc","#8e7cc3","#c27ba0"],
+            ["#c00","#e69138","#f1c232","#6aa84f","#45818e","#3d85c6","#674ea7","#a64d79"],
+            ["#900","#b45f06","#bf9000","#38761d","#134f5c","#0b5394","#351c75","#741b47"],
+            ["#600","#783f04","#7f6000","#274e13","#0c343d","#073763","#20124d","#4c1130"]
+        ],
+        clickoutFiresChange: true,
+        showButtons: false,
+        move: function(c) { onChangeDmx(c); },
+        show: function(c) { onChangeDmx(c); },
+        hide: function(c) { onChangeDmx(c); },
+        beforeShow: function(c) { onChangeDmx(c); },
+    });
 
-    $("#h").get(0).oninput=function() { dmxOnChangeH(this.value); };
-    $("#s").get(0).oninput=function() { dmxOnChangeS(this.value); };
-    $("#v").get(0).oninput=function() { dmxOnChangeV(this.value); };
-    $("#r").get(0).oninput=function() { dmxOnChangeR(this.value); };
-    $("#g").get(0).oninput=function() { dmxOnChangeG(this.value); };
-    $("#b").get(0).oninput=function() { dmxOnChangeB(this.value); };
-    dmxOnChangeS(1);
-    gradAll();
+    $(".loading").hide();
+    $("#mainContent").show();
 })
 
