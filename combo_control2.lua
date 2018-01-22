@@ -11,7 +11,11 @@ server=nil
 SEND_CHUNK_SIZE=1000
 
 function sendBigFile(socket,fd,onDone)
-    local s=fd:read(SEND_CHUNK_SIZE)
+    local fm=node.heap()
+    local bs=fm-10000
+    if bs<0 then bs=SEND_CHUNK_SIZE; end
+    if bs>=fm then bs=fm/2; end;
+    local s=fd:read(bs)
     if s==nil then
         onDone(socket,fd)
         return
@@ -122,6 +126,9 @@ function onRequest1(socket, request)
     if index~="" then
         index=tonumber(index)
     end
+
+    local reply=serverReply
+    
     if op=="on" and index>=1 and index<=numdo then
         doCtrl(index,1)
     elseif op=="off" and index>=1 and index<=numdo then
@@ -135,10 +142,18 @@ function onRequest1(socket, request)
         smokeOn(index)
     elseif op=="dmx" then
         dmxCtrl(hex)
+    elseif op=="state" then
+        local t = {
+            DO1=lastState["do"][1],
+            DO2=lastState["do"][2],
+            DO3=lastState["do"][3],
+            DO4=lastState["do"][4],
+            DMX=lastState.dmx,
+        }
+        reply = string.gsub(serverState, "#(%w+)#", t)
     end
 
-    --print("send"..#serverReply.."="..serverReply)
-    socket.send(serverReply,function(ok) onRequestCompleted(socket); end)
+    socket.send(reply,function(ok) onRequestCompleted(socket); end)
 end
 
 function mySocktNotify(mySocket)

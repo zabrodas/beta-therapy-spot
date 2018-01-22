@@ -303,11 +303,11 @@ See http://bgrins.github.io/spectrum/themes/ for instructions.
     float:left;
     position: relative;
     padding: 10px;
-    padding-bottom: 300px;
-    margin-bottom: -290px;
+    /* padding-bottom: 300px; */
+    /* margin-bottom: -290px; */
 }
 .sp-picker-container {
-    width: 172px;
+    width: 30em;
     border-left: solid 1px #fff;
 }
 
@@ -402,12 +402,13 @@ See http://bgrins.github.io/spectrum/themes/ for instructions.
 }
 
 .sp-palette {
-    *width: 220px;
-    max-width: 220px;
+    *
+    width: 220px;
+    /* max-width: 220px; */
 }
 .sp-palette .sp-thumb-el {
-    width:16px;
-    height: 16px;
+    width: 2.5em;
+    height: 2.5em;
     margin:2px 1px;
     border: solid 1px #d0d0d0;
 }

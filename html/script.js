@@ -32,7 +32,9 @@ function doEquipmentRequestByName(equipment,cmd,onOk,onFail) {
     doEquipmentRequestByUrl(equipment_list[equipment].url,cmd,onOk,onFail);
 }
 
-function doEquipmentRequestByUrl(url,cmd,onOk,onFail) {
+function doEquipmentRequestByUrl(url,cmd,onOk,onFail,dataType) {
+    dataType=dataType||"text";
+
     if (url==null) {
         if (onFail!=null) onFail();
         return;
@@ -55,7 +57,7 @@ function doEquipmentRequestByUrl(url,cmd,onOk,onFail) {
                 equipmentRequestCnt--;
                 if (onFail!=null) onFail();
             },
-            "dataType": "text",
+            "dataType": dataType,
             "timeout": 1000,
             "nextRequest": null
         };
@@ -99,6 +101,30 @@ function smoke(dur) {
     doEquipmentRequestByName("COMBO",cmd);
 }
 
+function onStatusFail() {
+}
+
+var spectrum;
+
+function onStatusReceived(data) {
+    data=eval("("+data+")");
+    $("#do1").prop("checked",data.do[0]==1);
+    $("#do2").prop("checked",data.do[1]==1);
+    $("#do3").prop("checked",data.do[2]==1);
+    $("#do4").prop("checked",data.do[3]==1);
+    var r=parseInt(data.dmx.substring(2,4),16);
+    var g=parseInt(data.dmx.substring(4,6),16);
+    var b=parseInt(data.dmx.substring(6,8),16);
+    r=Math.round(logColor(r/255)*255);
+    g=Math.round(logColor(g/255)*255);
+    b=Math.round(logColor(b/255)*255);
+    spectrum.spectrum("set",{r:r,g:g,b:b});
+    spectrum.spectrum("show");
+}
+
+function getStatus() {
+    doEquipmentRequestByName("COMBO","state",onStatusReceived,onStatusFail)
+}
 
 var b2h=[];
 for (var i=0; i<16; i++) {
@@ -141,7 +167,7 @@ $(function() {
     $("#do3").change(function() { doControl(3,$(this).get(0).checked); });
     $("#do4").change(function() { doControl(4,$(this).get(0).checked); });
 
-    $("#dmx").spectrum({
+    spectrum=$("#dmx").spectrum({
         color: "#000",
         flat: true,
         showInput: true,
@@ -160,10 +186,11 @@ $(function() {
         clickoutFiresChange: true,
         showButtons: false,
         move: function(c) { onChangeDmx(c); },
-        show: function(c) { onChangeDmx(c); },
+//        show: function(c) { onChangeDmx(c); },
         hide: function(c) { onChangeDmx(c); },
-        beforeShow: function(c) { onChangeDmx(c); },
+//        beforeShow: function(c) { onChangeDmx(c); },
     });
+    getStatus();
 
     $(".loading").hide();
     $("#mainContent").show();

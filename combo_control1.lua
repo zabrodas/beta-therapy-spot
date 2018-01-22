@@ -30,6 +30,7 @@ function restoreLastState()
             doCtrl(i,on)
         end
         local s=fd:readline()
+        s=string.sub(s,1,#s-1) -- remove newline
         if s~=nil then
             dmxCtrl(s)
         end
