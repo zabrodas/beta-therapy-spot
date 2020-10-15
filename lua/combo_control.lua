@@ -11,8 +11,8 @@ restoreLastState()
 
 wifiInit()
 dmxTimer=tmr.create()
-tmr.register(dmxTimer,10,tmr.ALARM_SEMI,dmxSendFrame)
-tmr.start(dmxTimer)
+dmxTimer.register(dmxTimer,10,tmr.ALARM_SEMI,dmxSendFrame)
+dmxTimer.start(dmxTimer)
 
 function pp(t)
     for k,v in pairs(t) do

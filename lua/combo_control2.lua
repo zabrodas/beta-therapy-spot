@@ -166,8 +166,8 @@ end
 
 function delayedCallTmo(f,tmo)
     local t=tmr.create()
-    tmr.register(t,tmo,tmr.ALARM_SINGLE,f)
-    tmr.start(t)
+    t.register(t,tmo,tmr.ALARM_SINGLE,f)
+    t.start(t)
 end    
 function delayedCall(f)
     delayedCallTmo(f,1)

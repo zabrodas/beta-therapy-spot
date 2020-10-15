@@ -59,8 +59,8 @@ function selectChannelAndStartAP(t)
             end
             wifiApConfig.common.channel=selchan
             local t=tmr.create()
-            tmr.register(t,500,tmr.ALARM_SINGLE,wifiInitAP)
-            tmr.start(t)
+            t.register(t,500,tmr.ALARM_SINGLE,wifiInitAP)
+            t.start(t)
 end
 
 function wifiInit()
@@ -87,7 +87,7 @@ function wifiConnectionWatchdogProc()
 
     if not wifiConnectionWatchdog then
         wifiConnectionWatchdog=tmr.create()
-        tmr.register(wifiConnectionWatchdog,10000,tmr.ALARM_SEMI,wifiConnectionWatchdogProc)
+        wifiConnectionWatchdog.register(wifiConnectionWatchdog,10000,tmr.ALARM_SEMI,wifiConnectionWatchdogProc)
     end
 
     local s=wifi.sta.status()
@@ -95,13 +95,13 @@ function wifiConnectionWatchdogProc()
     if s==wifi.STA_GOTIP and wifiTryIndex>0 then
         wifiScanIndex=wifiTryIndex
         wifiRetryCounter=6
-        tmr.start(wifiConnectionWatchdog)
+        wifiConnectionWatchdog.start(wifiConnectionWatchdog)
         return
     end
 
     wifiRetryCounter=wifiRetryCounter-1
     if wifiRetryCounter>0 then 
-        tmr.start(wifiConnectionWatchdog)
+        wifiConnectionWatchdog.start(wifiConnectionWatchdog)
         return;
     end
 
@@ -119,7 +119,7 @@ function wifiConnectionWatchdogProc()
                 wifi.setmode(wifi.NULLMODE)
                 wifiTryIndex=-1
                 wifiRetryCounter=0
-                tmr.start(wifiConnectionWatchdog)
+                wifiConnectionWatchdog.start(wifiConnectionWatchdog)
                 return
             end
         end
@@ -135,7 +135,7 @@ function wifiConnectionWatchdogProc()
         wifi.eventmon.register(wifi.eventmon.STA_DISCONNECTED,onWifiDisconnected)
         wifi.eventmon.register(wifi.eventmon.STA_GOT_IP,onWifiGotIp)
         wifi.sta.connect()
-        tmr.start(wifiConnectionWatchdog)
+        wifiConnectionWatchdog.start(wifiConnectionWatchdog)
 
     end)
         

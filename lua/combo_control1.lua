@@ -56,18 +56,18 @@ end
 
 
 lastStateTimer=tmr.create()
-tmr.register(lastStateTimer,10000,tmr.ALARM_SEMI,saveLastState)
+lastStateTimer.register(lastStateTimer,10000,tmr.ALARM_SEMI,saveLastState)
 
 function markChangeLastState()
-    tmr.stop(lastStateTimer)
-    tmr.start(lastStateTimer)
+    lastStateTimer.stop(lastStateTimer)
+    lastStateTimer.start(lastStateTimer)
 end
 
 function smokeOff()
     gpio.mode(smokePin,gpio.OUTPUT)
     gpio.write(smokePin,gpio.LOW)
     if smokeTimer~=nil then
-        tmr.stop(smokeTimer)
+        smokeTimer.stop(smokeTimer)
     end
     print("smoke off")
 end
@@ -81,10 +81,10 @@ function smokeOn(dur)
     end
     if smokeTimer==nil then
         smokeTimer=tmr.create()
-        tmr.register(smokeTimer, dur*1000, tmr.ALARM_SEMI, smokeOff)    
+        smokeTimer.register(smokeTimer, dur*1000, tmr.ALARM_SEMI, smokeOff)    
     end
-    tmr.interval(smokeTimer,dur*1000)
-    tmr.start(smokeTimer)
+    smokeTimer.interval(smokeTimer,dur*1000)
+    smokeTimer.start(smokeTimer)
     gpio.write(smokePin,gpio.HIGH)
     print("smoke on",dur)
 end
@@ -153,7 +153,7 @@ function dmxCreateSb()
 end
 
 function dmxSendFrame1() 
-    tmr.start(dmxTimer)
+    dmxTimer.start(dmxTimer)
 end
 
 function dmxSendFrame(buf)
