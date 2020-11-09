@@ -1,5 +1,7 @@
+
 #include "./constants.h"
 #include <EEPROM.h>
+#include <cont.h>
 
 #define LOGLINE { Serial. print("line: "); Serial.println(__LINE__); Serial.flush(); }
 
@@ -35,7 +37,16 @@ char dmxBuffer[256];
 const int dmxBufMaxLen=sizeof(dmxBuffer);
 int dmxBufLen=0;
 int dmxBufTrCnt=0;
-unsigned long dmxCycleCnt=0;
+int dmxCycleCnt=0;
+char dmxDelay=0;
+const int dmxBd1=ESP8266_CLOCK / 80000;
+const int dmxBd2=ESP8266_CLOCK / 256000;
+const int dmxClk=5000000;
+const int dmxCharPerIsr=5;
+const int dmxDelay1=(dmxCharPerIsr+1)*(5000000*12/256000);
+const int dmxDelay2=2*(5000000*12/80000);
+int dmxIsrCnt=0;
+
 
 void dmxInit() {
   dmxSerial.begin(80000,SERIAL_8N2);
@@ -45,7 +56,89 @@ void dmxInit() {
   dmxBufTrCnt=-3;
   dmxBuffer[0]=0;
   dmxBufLen=1;
+  dmxDelay=0;
 }
+
+
+
+static void ICACHE_RAM_ATTR xtimer1_enable(uint8_t divider, uint8_t int_type, uint8_t reload){
+    T1C = (1 << TCTE) | ((divider & 3) << TCPD) | ((int_type & 1) << TCIT) | ((reload & 1) << TCAR);
+    T1I = 0;
+}
+
+static void ICACHE_RAM_ATTR xtimer1_write(uint32_t ticks){
+    T1L = ((ticks)& 0x7FFFFF);
+    if ((T1C & (1 << TCIT)) == 0) TEIE |= TEIE1;//edge int enable
+}
+
+static void ICACHE_RAM_ATTR xtimer1_isr_handler(void *para){
+  if ((T1C & ((1 << TCAR) | (1 << TCIT))) == 0) TEIE &= ~TEIE1;//edge int disable
+  T1I = 0;
+  dmxIsrCnt++;
+
+  switch (dmxBufTrCnt) {
+    case -3:
+      USD(1) = dmxBd1;
+      USF(1) = 0;
+      dmxBufTrCnt=-1;
+      T1L = dmxDelay2;
+      break;
+    case -1:
+      USD(1) = dmxBd2;
+      dmxBufTrCnt=0;
+      T1L = dmxDelay1;
+      break;
+    default: {
+        int e=dmxBufTrCnt+dmxCharPerIsr;
+        if (e>dmxBufLen) e=dmxBufLen;
+        while (dmxBufTrCnt<e) USF(1) = dmxBuffer[dmxBufTrCnt++];
+        if (dmxBufTrCnt<dmxBufLen) {
+          T1L = dmxDelay1;
+        } else {
+          dmxBufTrCnt=-3;
+          dmxCycleCnt++;
+          T1L = dmxDelay2;
+        }
+      }
+      break;
+  }
+  if ((T1C & (1 << TCIT)) == 0) TEIE |= TEIE1;//edge int enable  
+}
+
+static void ICACHE_RAM_ATTR xtimer1_isr_init(){
+    ETS_FRC_TIMER1_INTR_ATTACH(xtimer1_isr_handler, NULL);
+    ETS_FRC1_INTR_ENABLE();
+}
+
+
+void checkDmxSendFrameIsr(){
+  switch (dmxBufTrCnt) {
+    case -3:
+      USD(1) = dmxBd1;
+      USF(1) = 0;
+      dmxBufTrCnt=-1;
+      xtimer1_write(dmxDelay2);
+      break;
+    case -1:
+      USD(1) = dmxBd2;
+      dmxBufTrCnt=0;
+      xtimer1_write(dmxDelay1);
+      break;
+    default: {
+        if (dmxBufTrCnt>=0 && dmxBufTrCnt<dmxBufLen) {
+          USF(1) = dmxBuffer[dmxBufTrCnt++];
+          xtimer1_write(dmxDelay1);
+        } else {
+          dmxBufTrCnt=-3;
+          dmxCycleCnt++;
+          xtimer1_write(dmxDelay2);
+        }
+      }
+      break;
+  }
+}
+
+
 
 void checkDmxSendFrame(){
   switch (dmxBufTrCnt) {
@@ -61,9 +154,8 @@ void checkDmxSendFrame(){
     case -1:
       dmxSerial.begin(256000,SERIAL_8N2);
       dmxBufTrCnt++;
-      break;
     default:
-      if (dmxSerial.availableForWrite()) {
+      while (dmxSerial.availableForWrite()) {
         if (dmxBufTrCnt>=0 && dmxBufTrCnt<dmxBufLen) {
           dmxSerial.write(dmxBuffer[dmxBufTrCnt++]);
         } else {
@@ -72,11 +164,13 @@ void checkDmxSendFrame(){
             dmxBufTrCnt=-3;
             dmxCycleCnt++;
           }
+          break;
         }
       }
       break;
   }
 }
+
 
 
 void doCtrl(int i, char on) {
@@ -432,13 +526,26 @@ void eepromRestoreState() {
   for (int i=0; i<dmxBufLen; i++) {
     dmxBuffer[i]=EEPROM.read(a++);
   }
-  Serial.printf("EEЗROM restored %d bytes\n",a);
+  Serial.printf("EEPROM restored %d bytes\n",a);
 }
 
 
 
 auto watchDogTimer=millis();
 unsigned long cycleCnt=0;
+
+
+void dmxIntSetup() {
+  Serial.println(dmxBd1);
+  Serial.println(dmxBd2);
+  Serial.println(dmxClk);
+  Serial.println(dmxDelay1);
+  Serial.println(dmxDelay2);
+  xtimer1_isr_init();
+  xtimer1_enable(TIM_DIV16, TIM_EDGE, TIM_SINGLE);
+  xtimer1_write(10000);
+}
+
 
 void setup() {
   Serial.begin(115200);
@@ -452,6 +559,7 @@ void setup() {
   eepromRestoreState();
   watchDogTimer=millis();
   cycleCnt=0;
+  dmxIntSetup();
 }
 
 void loop() {
@@ -459,11 +567,12 @@ void loop() {
   if (t-watchDogTimer>1000u) {
     watchDogTimer=t;
     Serial.print("Cnt="); Serial.print(cycleCnt);
-    Serial.print("DmxCnt="); Serial.println(dmxCycleCnt);
-    cycleCnt=0; dmxCycleCnt=0;
+    Serial.print(" dmxIsrCnt="); Serial.print(dmxIsrCnt);
+    Serial.print(" DmxCnt="); Serial.println(dmxCycleCnt);
+    cycleCnt=0; dmxCycleCnt=0; dmxIsrCnt=0;
   }
   checkSmoke();
-  checkDmxSendFrame();
+//  checkDmxSendFrame();
   wifiCheckStaConn();
   httpServerCheck();
   eepromCheck();
