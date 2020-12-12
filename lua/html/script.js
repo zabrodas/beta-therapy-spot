@@ -104,7 +104,7 @@ function smoke(dur) {
 function onStatusFail() {
 }
 
-var spectrum;
+var spectrum1,spectrum2;
 
 function onStatusReceived(data) {
     data=eval("("+data+")");
@@ -112,14 +112,28 @@ function onStatusReceived(data) {
     $("#do2").prop("checked",data.do[1]==1);
     $("#do3").prop("checked",data.do[2]==1);
     $("#do4").prop("checked",data.do[3]==1);
+
     var r=parseInt(data.dmx.substring(2,4),16);
     var g=parseInt(data.dmx.substring(4,6),16);
     var b=parseInt(data.dmx.substring(6,8),16);
     r=Math.round(logColor(r/255)*255);
     g=Math.round(logColor(g/255)*255);
     b=Math.round(logColor(b/255)*255);
-    spectrum.spectrum("set",{r:r,g:g,b:b});
-    spectrum.spectrum("show");
+    spectrum1.spectrum("set",{r:r,g:g,b:b});
+    spectrum1.spectrum("show");
+
+//    x1="ff"+b2h[rl1]+b2h[gl1]+b2h[bl1]+"00 00 00 00 00 00";
+//    x2="00 ff 00 ff"+b2h[rl2]+b2h[gl2]+b2h[bl2]+b2h[wl2]+"00 00";
+
+    r=parseInt(data.dmx.substring(28,30),16);
+    g=parseInt(data.dmx.substring(30,32),16);
+    b=parseInt(data.dmx.substring(32,34),16);
+    r=Math.round(logColor(r/255)*255);
+    g=Math.round(logColor(g/255)*255);
+    b=Math.round(logColor(b/255)*255);
+    spectrum2.spectrum("set",{r:r,g:g,b:b});
+    spectrum2.spectrum("show");
+
 }
 
 function getStatus() {
@@ -142,20 +156,42 @@ function hexcolor(c) {
     return "#"+b2h[rl]+b2h[gl]+b2h[bl];
 }
 
-function dmxControl(r,g,b) {
-    var rl=Math.round(expColor(r)*255);
-    var gl=Math.round(expColor(g)*255);
-    var bl=Math.round(expColor(b)*255);
+function dmxControl(r1,g1,b1,r2,g2,b2) {
+    var rl1=Math.round(expColor(r1)*255);
+    var gl1=Math.round(expColor(g1)*255);
+    var bl1=Math.round(expColor(b1)*255);
+
+    var rl2=Math.round(expColor(r2)*255);
+    var gl2=Math.round(expColor(g2)*255);
+    var bl2=Math.round(expColor(b2)*255);
+    var wl2=Math.min(rl2,gl2,bl2)
+
 //    $("#combo-warning").text(rl+","+gl+","+bl);
-    cmd="dmx=ff"+b2h[rl]+b2h[gl]+b2h[bl]+"0000000000";
+//    cmd="dmx=ff"+b2h[rl]+b2h[gl]+b2h[bl]+"0000000000";
+
+    x1="ff"+b2h[rl1]+b2h[gl1]+b2h[bl1]+"000000000000";
+    x2="00ff00ff"+b2h[rl2]+b2h[gl2]+b2h[bl2]+b2h[wl2]+"0000";
+    cmd="dmx="+x1+x2;
+
     doEquipmentRequestByName("COMBO",cmd);
 }
 
-function onChangeDmx(c) {
-    var r=c._r/255;
-    var g=c._g/255;
-    var b=c._b/255;
-    dmxControl(r,g,b);
+var savedDmx={
+    r1:0, b1:0, g1:0,
+    r2:0, b2:0, g2:0
+};
+
+function onChangeDmx1(c) {
+    savedDmx.r1=c._r/255;
+    savedDmx.g1=c._g/255;
+    savedDmx.b1=c._b/255;
+    dmxControl(savedDmx.r1,savedDmx.g1,savedDmx.b1,savedDmx.r2,savedDmx.g2,savedDmx.b2);
+}
+function onChangeDmx2(c) {
+    savedDmx.r2=c._r/255;
+    savedDmx.g2=c._g/255;
+    savedDmx.b2=c._b/255;
+    dmxControl(savedDmx.r1,savedDmx.g1,savedDmx.b1,savedDmx.r2,savedDmx.g2,savedDmx.b2);
 }
 
 $(function() {
@@ -167,7 +203,7 @@ $(function() {
     $("#do3").change(function() { doControl(3,$(this).get(0).checked); });
     $("#do4").change(function() { doControl(4,$(this).get(0).checked); });
 
-    spectrum=$("#dmx").spectrum({
+    spectrum1=$("#dmx1").spectrum({
         color: "#000",
         flat: true,
         showInput: true,
@@ -185,11 +221,36 @@ $(function() {
         ],
         clickoutFiresChange: true,
         showButtons: false,
-        move: function(c) { onChangeDmx(c); },
-//        show: function(c) { onChangeDmx(c); },
-        hide: function(c) { onChangeDmx(c); },
-//        beforeShow: function(c) { onChangeDmx(c); },
+        move: function(c) { onChangeDmx1(c); },
+//        show: function(c) { onChangeDmx1(c); },
+        hide: function(c) { onChangeDmx1(c); },
+//        beforeShow: function(c) { onChangeDmx1(c); },
     });
+
+    spectrum2=$("#dmx2").spectrum({
+        color: "#000",
+        flat: true,
+        showInput: true,
+        showPalette: true,
+        showInput: false,
+        palette: [
+            ["#000","#444","#666","#999","#ccc","#eee","#f3f3f3","#fff"],
+            ["#f00","#f90","#ff0","#0f0","#0ff","#00f","#90f","#f0f"],
+            ["#f4cccc","#fce5cd","#fff2cc","#d9ead3","#d0e0e3","#cfe2f3","#d9d2e9","#ead1dc"],
+            ["#ea9999","#f9cb9c","#ffe599","#b6d7a8","#a2c4c9","#9fc5e8","#b4a7d6","#d5a6bd"],
+            ["#e06666","#f6b26b","#ffd966","#93c47d","#76a5af","#6fa8dc","#8e7cc3","#c27ba0"],
+            ["#c00","#e69138","#f1c232","#6aa84f","#45818e","#3d85c6","#674ea7","#a64d79"],
+            ["#900","#b45f06","#bf9000","#38761d","#134f5c","#0b5394","#351c75","#741b47"],
+            ["#600","#783f04","#7f6000","#274e13","#0c343d","#073763","#20124d","#4c1130"]
+        ],
+        clickoutFiresChange: true,
+        showButtons: false,
+        move: function(c) { onChangeDmx2(c); },
+//        show: function(c) { onChangeDmx2(c); },
+        hide: function(c) { onChangeDmx2(c); },
+//        beforeShow: function(c) { onChangeDmx2(c); },
+    });
+
     getStatus();
 
     $(".loading").hide();
