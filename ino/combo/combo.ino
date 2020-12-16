@@ -39,12 +39,14 @@ int dmxBufLen=0;
 int dmxBufTrCnt=0;
 int dmxCycleCnt=0;
 char dmxDelay=0;
-const int dmxBd1=ESP8266_CLOCK / 80000;
-const int dmxBd2=ESP8266_CLOCK / 256000;
+const int dmxSpeed1=80000;
+const int dmxSpeed2=250000;
+const int dmxBd1=ESP8266_CLOCK / dmxSpeed1;
+const int dmxBd2=ESP8266_CLOCK / dmxSpeed2;
 const int dmxClk=5000000;
 const int dmxCharPerIsr=5;
-const int dmxDelay1=(dmxCharPerIsr+1)*(5000000*12/256000);
-const int dmxDelay2=2*(5000000*12/80000);
+const int dmxDelay1=(dmxCharPerIsr+1)*(5000000*12/dmxSpeed2);
+const int dmxDelay2=2*(5000000*12/dmxSpeed1);
 int dmxIsrCnt=0;
 
 
